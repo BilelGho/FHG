@@ -3786,7 +3786,79 @@ proof -
   ultimately show ?thesis by auto
 qed
 
-lemma 
+lemma divide_set:"S = (S \<inter> T) \<union> (S - T)"
+  by auto
+
+lemma clusterNodes_not_empty:
+ "clusterNodes c \<noteq> {}"
+  by (induct c rule: clusterNodes.induct) auto
+
+lemma pred_3_suc2:
+"pred (pred (pred l)) = Suc (Suc l)"
+  by (induction l) auto
+
+lemma finite_clusterSet: "finite (cs :: Cluster set)"
+proof - 
+have "(UNIV::ClusterType set) = {A,B,C} "
+    by (smt (verit) UNIV_eq_I example_2.ClusterType.exhaust insertI1 insert_commute)                    
+  hence "finite (UNIV::ClusterType set)"
+    by (metis finite.emptyI finite.insertI) 
+  moreover have "(UNIV :: ClusterNumber set) = {O1,O2,O3,O4,O5}"
+    by (smt (verit) UNIV_eq_I example_2.ClusterNumber.exhaust insertI1 insert_commute)
+  hence "finite (UNIV :: ClusterNumber set)" 
+    by (metis finite.emptyI finite.insertI)  
+  moreover have "(UNIV :: Cluster set) =  (\<lambda>(a,b). Cluster a b) ` ((UNIV::ClusterType set) \<times> (UNIV :: ClusterNumber set)) "
+    by (metis UNIV_Times_UNIV UNIV_eq_I example_2.Cluster.exhaust rangeI split_conv)                                             
+  ultimately have "finite (UNIV:: Cluster set)"
+    by (smt (verit) UNIV_Times_UNIV finite_Prod_UNIV finite_imageI) 
+    moreover have "cs \<subseteq> UNIV" by auto
+        ultimately show ?thesis using finite_subset by blast
+qed
+
+lemma finite_clusterNodes':
+"finite (\<Union> (clusterNodes ` cs))"
+proof (rule finite_induct[of cs], goal_cases)
+  case 1
+  then show ?case using finite_clusterSet.
+next
+  case 2
+  then show ?case by auto
+next
+  case (3 x F)
+  then show ?case using finite_clusterNodes by auto
+qed
+
+lemma card_distrib:
+"card ( \<Union> (clusterNodes ` cs)) =  sum (card o clusterNodes)  cs"
+proof (rule finite_induct[of cs], goal_cases)
+  case 1
+  have "(UNIV::ClusterType set) = {A,B,C} "
+    by (smt (verit) UNIV_eq_I example_2.ClusterType.exhaust insertI1 insert_commute)                    
+  hence "finite (UNIV::ClusterType set)"
+    by (metis finite.emptyI finite.insertI) 
+  moreover have "(UNIV :: ClusterNumber set) = {O1,O2,O3,O4,O5}"
+    by (smt (verit) UNIV_eq_I example_2.ClusterNumber.exhaust insertI1 insert_commute)
+  hence "finite (UNIV :: ClusterNumber set)" 
+    by (metis finite.emptyI finite.insertI)  
+  moreover have "(UNIV :: Cluster set) =  (\<lambda>(a,b). Cluster a b) ` ((UNIV::ClusterType set) \<times> (UNIV :: ClusterNumber set)) "
+    by (metis UNIV_Times_UNIV UNIV_eq_I example_2.Cluster.exhaust rangeI split_conv)                                             
+  ultimately have "finite (UNIV:: Cluster set)"
+    by (smt (verit) UNIV_Times_UNIV finite_Prod_UNIV finite_imageI) 
+  moreover have "cs \<subseteq> UNIV" by auto
+  ultimately show ?case using finite_subset by blast
+next
+  case 2
+  then show ?case by auto
+next
+  case (3 x F)
+  then show ?case using card_Un_disjoint[OF finite_clusterNodes[of x] finite_clusterNodes'[of F] ]
+    by (meson card_union clusterNodes_inter_empty comp_apply finite_clusterNodes finite_clusterSet) 
+qed
+
+  
+  
+
+lemma empty_core:
   fixes \<pi>
   assumes "\<pi> \<in> core"
   shows False
@@ -3835,30 +3907,52 @@ proof (cases "\<exists>i l. i\<in> clusterNodes (Cluster A l) \<and> \<not> \<pi
       qed
       ultimately show ?case by auto
     qed
-    obtain j where "j\<in> clusterNodes (Cluster A l) \<union> clusterNodes (Cluster B l)" 
-        "val j (\<pi> j) \<ge> 4/5" using cluster_core_min_val[of "Cluster A l" "Cluster B l"]
+    obtain j1 where "j1\<in> clusterNodes (Cluster A l) \<union> clusterNodes (Cluster B l)" 
+        "val j1 (\<pi> j1) \<ge> 4/5" using cluster_core_min_val[of "Cluster A l" "Cluster B l"]
       unfolding f'_def 
       using assms by auto
-    hence j_def:"j\<in> clusterNodes (Cluster B l)" 
-        "val j (\<pi> j) \<ge> 4/5" using A1_ubound by auto
-    then obtain j where j_def: "j\<in> clusterNodes (Cluster B l)" 
-        "val j (\<pi> j) \<ge> 4/5" "\<forall>j'\<in> clusterNodes (Cluster B l). val j (\<pi> j) \<ge> val j' (\<pi> j') "
+    moreover obtain j5 where "j5\<in> clusterNodes (Cluster A l) \<union> clusterNodes (Cluster B (pred l))" 
+        "val j5 (\<pi> j5) \<ge> 4/5" using cluster_core_min_val[of "Cluster A l" "Cluster B (pred l)"]
+      unfolding f'_def 
+      using assms by auto
+    ultimately have j_def:"j1\<in> clusterNodes (Cluster B l)" 
+              "j5 \<in> clusterNodes (Cluster B (pred l)) "
+        "val j1 (\<pi> j1) \<ge> 4/5" "val j5 (\<pi> j5) \<ge> 4/5"  using A1_ubound by fastforce+
+    then obtain j1 j5 where j_def: "j1\<in> clusterNodes (Cluster B l)"  
+              "j5 \<in> clusterNodes (Cluster B (pred l))"
+        "val j1 (\<pi> j1) \<ge> 4/5" "val j5 (\<pi> j5) \<ge> 4/5"
+ "\<forall>j'\<in> clusterNodes (Cluster B l). val j1 (\<pi> j1) \<ge> val j' (\<pi> j') "
+ "\<forall>j'\<in> clusterNodes (Cluster B (pred l)). val j5 (\<pi> j5) \<ge> val j' (\<pi> j') "
       using finite_sup[OF finite_clusterNodes, of "Cluster B l" "\<lambda>x. val x (\<pi> x)"]
+finite_sup[OF finite_clusterNodes, of "Cluster B (pred l)" "\<lambda>x. val x (\<pi> x)"]
       by force
-     have "j \<notin> \<pi> i" using pi_def(1,3) j_def(1) clusterNodes_inter_empty 
+     have "j1 \<notin> \<pi> i" using pi_def(1,3) j_def(1) clusterNodes_inter_empty 
           by (metis UnE example_2.Cluster.inject example_2.ClusterType.distinct(1) example_2.ClusterType.distinct(5) not_in_many_clusters' pred2_diff subsetD)
-        hence "\<pi> j \<inter> \<pi> i = {}" using partition_relation[OF assms j_def(1) i_def(1)] by auto
-        hence not_A1: "\<pi> j \<inter> clusterNodes (Cluster A l) = {}" using pi_def by auto
-    have j_in_neighbors:"\<pi> j - {j} \<subseteq> neighbors j"
-    proof (rule ccontr, goal_cases asm)
-      case asm
+        hence "\<pi> j1 \<inter> \<pi> i = {}" using partition_relation[OF assms j_def(1) i_def(1)] by auto
+        hence not_A1_j1: "\<pi> j1 \<inter> clusterNodes (Cluster A l) = {}" using pi_def by auto
+    have "j5 \<notin> \<pi> i" using pi_def(1,3) j_def(2) clusterNodes_inter_empty 
+          by (metis UnE example_2.Cluster.inject example_2.ClusterType.distinct(1) example_2.ClusterType.distinct(5) not_in_many_clusters' pred2_diff subsetD)
+        hence "\<pi> j5 \<inter> \<pi> i = {}" using partition_relation[OF assms j_def(2) i_def(1)] by auto
+        hence not_A1_j5: "\<pi> j5 \<inter> clusterNodes (Cluster A l) = {}" using pi_def by auto
+    have j_in_neighbors:"\<forall>j. j = j1 \<or> j= j5 \<longrightarrow> \<pi> j - {j} \<subseteq> neighbors j"
+    proof (standard,standard,rule ccontr, goal_cases asm)
+      case (asm j)
       then obtain j' where j'_def: "j' \<in> \<pi> j" "j' \<noteq> j" "j' \<notin> neighbors j" by blast
       have "val j (\<pi> j) \<le> real 7 / (real 7 + real 2)"
       proof (rule card_val_upper_bound''[of "neighbors j - clusterNodes (Cluster A l)" _ "{j,j'}"], goal_cases)
         case 1
         have "clusterNodes (Cluster A l) \<subseteq> neighbors j "
-          unfolding neighbors_correct_set[OF j_def(1)] using j_def(1) clusterNodes_inter_empty by auto 
-        then show ?case using card_neighbors_B'[OF j_def(1)] by auto 
+          using asm(1)
+        proof(standard, goal_cases j1 j5)
+          case j1
+          then show ?case unfolding j1 neighbors_correct_set[OF j_def(1)]
+            using j_def(1) clusterNodes_inter_empty  by auto
+        next
+          case j5
+          then show ?case unfolding j5 neighbors_correct_set[OF j_def(2)]
+            using j_def(2) clusterNodes_inter_empty  by auto
+        qed
+        then show ?case using card_neighbors_B' asm(1) j_def(1,2)  by auto 
       next
         case 2
         then show ?case using j'_def(2) by auto
@@ -3867,41 +3961,59 @@ proof (cases "\<exists>i l. i\<in> clusterNodes (Cluster A l) \<and> \<not> \<pi
         then show ?case by auto
       next
         case 4
-        then show ?case using not_A1 by auto
+        then show ?case using not_A1_j1 not_A1_j5 asm(1) by auto
       next
         case 5
-        then show ?case using j'_def in_its_partition[OF assms j_def(1)] no_self_neighbor by blast
+        then show ?case using j'_def asm(1)  in_its_partition[OF assms j_def(1)] 
+              in_its_partition[OF assms j_def(2)] no_self_neighbor by blast
       next
         case 6
-        then show ?case using finite_pi'[OF assms j_def(1)] .
+        then show ?case using finite_pi'[OF assms j_def(1)]  finite_pi'[OF assms j_def(2)] asm(1) by auto
       next
         case 7
         then show ?case using finite_neighbors by blast
       qed
-      then show ?case using j_def(2) by auto
+      then show ?case using asm(1) j_def(3,4) by auto
     qed
-    have B1_pi:"clusterNodes (Cluster B l) \<subseteq> \<pi> j"
+    have B1_pi:"clusterNodes (Cluster B l) \<subseteq> \<pi> j1"
     proof (rule ccontr, goal_cases asm)
       case asm
-      hence "blocking_coalition \<pi> (\<pi> j \<union> clusterNodes (Cluster B l) )"
-        using blocking_coalition_if_connected[OF j_def(1) j_def(3)_ _ asm  j_in_neighbors assms]
+      hence "blocking_coalition \<pi> (\<pi> j1 \<union> clusterNodes (Cluster B l) )"
+        using blocking_coalition_if_connected[OF j_def(1) j_def(5) _ _ asm  _ assms]
+            j_in_neighbors
+        by auto
+      then show ?case using assms unfolding core_def in_core_def by auto
+    qed 
+    have B5_pi:"clusterNodes (Cluster B (pred l)) \<subseteq> \<pi> j5"
+    proof (rule ccontr, goal_cases asm)
+      case asm
+      hence "blocking_coalition \<pi> (\<pi> j5 \<union> clusterNodes (Cluster B (pred l)) )"
+        using blocking_coalition_if_connected[OF j_def(2) j_def(6) _ _ asm  _ assms]
+            j_in_neighbors
         by auto
       then show ?case using assms unfolding core_def in_core_def by auto
     qed
-    have pi_clusterNodes:"\<pi> j \<subseteq>  \<Union> (clusterNodes ` (neighboring_clusters (Cluster B l)))"
+    have pi_clusterNodes_j1:"\<pi> j1 \<subseteq>  \<Union> (clusterNodes ` (neighboring_clusters (Cluster B l)))"
       using pi_in_neighbors  unfolding neighbors_correct_set[OF j_def(1)]
       by (metis Diff_eq_empty_iff Diff_insert2 UN_I neighbors_correct_set[OF j_def(1)] in_neighboring insert_Diff j_def(1) j_in_neighbors)
-    from A_superplayer'[OF assms j_def(1), of "Suc l" ] 
-        C_superplayer'[OF assms j_def(1), of "Suc (Suc l)" ] 
-    show ?thesis 
-    proof (auto simp del:clusterNodes.simps, goal_cases)
+    have pi_clusterNodes_j5:"\<pi> j5 \<subseteq>  \<Union> (clusterNodes ` (neighboring_clusters (Cluster B (pred l))))"
+      using pi_in_neighbors  unfolding neighbors_correct_set[OF j_def(2)]
+      by (metis Diff_eq_empty_iff Diff_insert2 UN_I neighbors_correct_set[OF j_def(2)] in_neighboring insert_Diff j_def(2) j_in_neighbors)
+    (*from A_superplayer'[OF assms j_def(1), of "Suc l" ]
+        C_superplayer'[OF assms j_def(1), of "Suc (Suc l)" ]*)
+    have pi_j1: "\<pi> j1 = clusterNodes (Cluster B l) \<union> 
+                  clusterNodes (Cluster C (Suc (Suc l))) " 
+    proof ((rule disjE[OF A_superplayer'[OF assms j_def(1), of "Suc l" ]];
+             rule disjE[OF C_superplayer'[OF assms j_def(1), of "Suc (Suc l)" ] ]),
+          goal_cases
+)
       case 1
-      have pi_j:"\<pi> j = clusterNodes (Cluster B l) \<union> clusterNodes (Cluster A (Suc l)) \<union> 
+      have pi_j:"\<pi> j1 = clusterNodes (Cluster B l) \<union> clusterNodes (Cluster A (Suc l)) \<union> 
                   clusterNodes (Cluster C (Suc (Suc l)))"
       proof (standard, goal_cases left right)
         case left
-        then show ?case using pi_clusterNodes
-           not_A1  unfolding neighbors_correct_set[OF j_def(1)] 
+        then show ?case using pi_clusterNodes_j1
+           not_A1_j1  unfolding neighbors_correct_set[OF j_def(1)] 
           by (auto simp del:clusterNodes.simps)
       next
         case right
@@ -3910,16 +4022,16 @@ proof (cases "\<exists>i l. i\<in> clusterNodes (Cluster A l) \<and> \<not> \<pi
       have "\<forall>k\<in> clusterNodes (Cluster C (Suc (Suc l))). val k (\<pi> k) = 4/8"
       proof(standard, goal_cases C3)
         case (C3 k)
-        hence "k \<in> \<pi> j" using pi_j by auto
-        hence "\<pi> k = \<pi> j" using partition_relation[OF assms C3 j_def(1)] by auto
-        moreover have "(\<pi> j \<inter> neighbors k) = clusterNodes (Cluster B l) \<union>
+        hence "k \<in> \<pi> j1" using pi_j by auto
+        hence "\<pi> k = \<pi> j1" using partition_relation[OF assms C3 j_def(1)] by auto
+        moreover have "(\<pi> j1 \<inter> neighbors k) = clusterNodes (Cluster B l) \<union>
                   clusterNodes (Cluster C (Suc (Suc l))) - {k} "
           unfolding neighbors_correct_set[OF C3] pi_j     
           apply (auto simp del:clusterNodes.simps)
           using clusterNodes_inter_empty  suc_diff 
           by (meson example_2.Cluster.inject not_in_many_clusters')
         moreover have "card (...) = 4" using C3 by auto
-        moreover have "card (\<pi> j) = 8" unfolding pi_j by auto
+        moreover have "card (\<pi> j1) = 8" unfolding pi_j by auto
         ultimately show ?case unfolding val_graph_correct[OF finite_pi'[OF assms C3],symmetric]
           val_graph_def by auto
       qed
@@ -3940,11 +4052,11 @@ proof (cases "\<exists>i l. i\<in> clusterNodes (Cluster A l) \<and> \<not> \<pi
       then show ?case using assms unfolding core_def in_core_def by auto
     next
       case 2
-      have pi_j:"\<pi> j = clusterNodes (Cluster B l) \<union> clusterNodes (Cluster A (Suc l))"
+      have pi_j:"\<pi> j1 = clusterNodes (Cluster B l) \<union> clusterNodes (Cluster A (Suc l))"
       proof (standard, goal_cases left right)
         case left
-        then show ?case using pi_clusterNodes
-           not_A1 2(2)  unfolding neighbors_correct_set[OF j_def(1)] 
+        then show ?case using pi_clusterNodes_j1
+           not_A1_j1 2(2)  unfolding neighbors_correct_set[OF j_def(1)] 
           by (auto simp del:clusterNodes.simps)
       next
         case right
@@ -3954,20 +4066,20 @@ proof (cases "\<exists>i l. i\<in> clusterNodes (Cluster A l) \<and> \<not> \<pi
       have "\<forall>k\<in> clusterNodes (Cluster A (Suc l)). val k (\<pi> k) = 4/5"
       proof (standard, goal_cases A2)
         case (A2 k)
-        have "k \<in> \<pi> j" using A2 pi_j by auto
-        hence "\<pi> k = \<pi> j" using partition_relation[OF assms A2 j_def(1)] by auto
-        moreover have "\<pi> j \<inter> neighbors k = \<pi> j - {k} "
+        have "k \<in> \<pi> j1" using A2 pi_j by auto
+        hence "\<pi> k = \<pi> j1" using partition_relation[OF assms A2 j_def(1)] by auto
+        moreover have "\<pi> j1\<inter> neighbors k = \<pi> j1 - {k} "
           unfolding pi_j neighbors_correct_set[OF A2] by auto
         moreover have "card(...) = 4"  unfolding pi_j using A2  by auto
-        moreover have "card (\<pi> j) = 5" unfolding pi_j   by auto
+        moreover have "card (\<pi> j1) = 5" unfolding pi_j   by auto
         ultimately show ?case unfolding val_graph_correct[OF finite_pi'[OF assms A2],symmetric] val_graph_def 
           by auto
       qed
       moreover have "\<forall>k \<in>  clusterNodes (Cluster C (Suc l)). val k (\<pi> k) \<le> 4/5 "
       proof (standard, goal_cases C2)
         case (C2 k)
-        have "k \<notin> \<pi> j" unfolding pi_j using C2 by auto
-        hence "\<pi> k \<inter> \<pi> j = {}" using partition_relation[OF assms C2 j_def(1)] by auto
+        have "k \<notin> \<pi> j1" unfolding pi_j using C2 by auto
+        hence "\<pi> k \<inter> \<pi> j1 = {}" using partition_relation[OF assms C2 j_def(1)] by auto
         hence  * :"\<pi> k \<inter> clusterNodes (Cluster A (Suc l)) = {}" unfolding pi_j by auto
         have "val k (\<pi> k) \<le> real 4 / (real 4 + real 1)" 
         proof (rule card_val_upper_bound''[of "neighbors k - clusterNodes (Cluster A (Suc l)) " _ "{k}"], 
@@ -4020,22 +4132,270 @@ proof (cases "\<exists>i l. i\<in> clusterNodes (Cluster A l) \<and> \<not> \<pi
       then show ?case using assms unfolding core_def in_core_def by auto
     next
       case 3
-      have pi_j:"\<pi> j = clusterNodes (Cluster B l) \<union> clusterNodes (Cluster C (Suc (Suc l)))"
+      show ?case
       proof (standard, goal_cases left right)
         case left
-        then show ?case using pi_clusterNodes
-           not_A1 3(1)  unfolding neighbors_correct_set[OF j_def(1)] 
+        then show ?case using pi_clusterNodes_j1
+           not_A1_j1 3(1)  unfolding neighbors_correct_set[OF j_def(1)] 
           by (auto simp del:clusterNodes.simps)
       next
         case right
         then show ?case using 3(2) B1_pi by auto
       qed
-        
-      then show ?case sorry
     next
       case 4
-      then show ?case sorry 
+      have pi_j:"\<pi> j1 = clusterNodes (Cluster B l)"
+        proof (standard, goal_cases left right)
+          case left
+          then show ?case using pi_clusterNodes_j1
+           not_A1_j1 4(1,2)  unfolding neighbors_correct_set[OF j_def(1)] 
+          by (auto simp del:clusterNodes.simps)
+      next
+        case right
+        then show ?case using  B1_pi by auto
+      qed
+      moreover have "card (\<pi> j1 \<inter> neighbors j1) \<ge> 4"
+        using j_def(3) card_val_lower_bound[OF finite_pi'[OF assms j_def(1)] _ in_its_partition[OF assms j_def(1)]]
+        unfolding f'_def by auto
+      hence "card (\<pi> j1) \<ge> 4" using card_mono[OF finite_pi'[OF assms j_def(1)]] 
+        by (meson inf_le1 le_trans)
+      then show ?case using pi_j by auto 
     qed
+
+    have pi_j5:"\<pi> j5 = clusterNodes (Cluster B (pred l)) \<union> 
+                  clusterNodes (Cluster C (Suc l)) " 
+    proof ((rule disjE[OF A_superplayer'[OF assms j_def(2), of "pred l" ]];
+             rule disjE[OF C_superplayer'[OF assms j_def(2), of "Suc l" ] ]),
+          goal_cases
+)
+      case 1
+      have pi_j:"\<pi> j5 = clusterNodes (Cluster B (pred l)) \<union> clusterNodes (Cluster A (pred l)) \<union> 
+                  clusterNodes (Cluster C  (Suc l))"
+      proof (standard, goal_cases left right)
+        case left
+        then show ?case using pi_clusterNodes_j5
+           not_A1_j5  unfolding neighbors_correct_set[OF j_def(2)] 
+          by (auto simp del:clusterNodes.simps)
+      next
+        case right
+        then show ?case using 1 B5_pi by auto
+      qed
+      have "\<forall>k\<in> clusterNodes (Cluster C (Suc l)). val k (\<pi> k) = 4/8"
+      proof(standard, goal_cases C3)
+        case (C3 k)
+        hence "k \<in> \<pi> j5" using pi_j by auto
+        hence "\<pi> k = \<pi> j5" using partition_relation[OF assms C3 j_def(2)] by auto
+        moreover have "(\<pi> j5 \<inter> neighbors k) = clusterNodes (Cluster B (pred l)) \<union>
+                  clusterNodes (Cluster C (Suc l)) - {k} "
+          unfolding neighbors_correct_set[OF C3] pi_j     
+          apply (auto simp del:clusterNodes.simps)
+          using clusterNodes_inter_empty  suc_diff pred_diff
+          by (meson example_2.Cluster.inject not_in_many_clusters' pred_suc_diff)
+        moreover have "card (...) = 4" using C3 by auto
+        moreover have "card (\<pi> j5) = 8" unfolding pi_j by auto
+        ultimately show ?case unfolding val_graph_correct[OF finite_pi'[OF assms C3],symmetric]
+          val_graph_def by auto
+      qed
+      moreover have "\<forall>k \<in> clusterNodes (Cluster C (Suc l)). val k (clusterNodes (Cluster C (Suc l))) = 2/3"
+      proof(standard, goal_cases C3)
+        case (C3 k)
+        have "clusterNodes (Cluster C (Suc l)) \<inter> neighbors k = clusterNodes (Cluster C (Suc l)) - {k}"
+          unfolding neighbors_correct_set[OF C3] by auto
+        moreover have "card (...) = 2" using C3 by auto
+        moreover have "card (clusterNodes (Cluster C (Suc l))) = 3" by auto
+        ultimately show ?case  unfolding val_graph_correct[OF finite_clusterNodes ,symmetric]
+          val_graph_def by auto
+      qed
+      ultimately have "blocking_coalition \<pi> (clusterNodes (Cluster C (Suc l)))"
+        unfolding blocking_coalition_def strict_pref_rel_def  
+        apply (auto simp del:clusterNodes.simps)
+        by auto
+      then show ?case using assms unfolding core_def in_core_def by auto
+    next
+      case 2
+      have pi_j:"\<pi> j5 = clusterNodes (Cluster B (pred l)) \<union> clusterNodes (Cluster A (pred l))"
+      proof (standard, goal_cases left right)
+        case left
+        then show ?case using pi_clusterNodes_j5
+           not_A1_j5 2(2)  unfolding neighbors_correct_set[OF j_def(2)] 
+          by (auto simp del:clusterNodes.simps)
+      next
+        case right
+        then show ?case using 2(1) B5_pi by auto
+      qed
+      let ?A2_C2= "clusterNodes (Cluster A (pred l)) \<union> clusterNodes (Cluster C (pred l))"
+      have "\<forall>k\<in> clusterNodes (Cluster A (pred l)). val k (\<pi> k) = 4/5"
+      proof (standard, goal_cases A2)
+        case (A2 k)
+        have "k \<in> \<pi> j5" using A2 pi_j by auto
+        hence "\<pi> k = \<pi> j5" using partition_relation[OF assms A2 j_def(2)] by auto
+        moreover have "\<pi> j5\<inter> neighbors k = \<pi> j5 - {k} "
+          unfolding pi_j neighbors_correct_set[OF A2] by auto
+        moreover have "card(...) = 4"  unfolding pi_j using A2  by auto
+        moreover have "card (\<pi> j5) = 5" unfolding pi_j   by auto
+        ultimately show ?case unfolding val_graph_correct[OF finite_pi'[OF assms A2],symmetric] val_graph_def 
+          by auto
+      qed
+      moreover have "\<forall>k \<in>  clusterNodes (Cluster C (pred l)). val k (\<pi> k) \<le> 4/5 "
+      proof (standard, goal_cases C2)
+        case (C2 k)
+        have "k \<notin> \<pi> j5" unfolding pi_j using C2 by auto
+        hence "\<pi> k \<inter> \<pi> j5 = {}" using partition_relation[OF assms C2 j_def(2)] by auto
+        hence  * :"\<pi> k \<inter> clusterNodes (Cluster A (pred l)) = {}" unfolding pi_j by auto
+        have "val k (\<pi> k) \<le> real 4 / (real 4 + real 1)" 
+        proof (rule card_val_upper_bound''[of "neighbors k - clusterNodes (Cluster A (pred l)) " _ "{k}"], 
+              goal_cases)
+          case 1
+          then show ?case unfolding neighbors_correct_set[OF C2] using C2 by auto
+        next
+          case 2
+          then show ?case by auto
+        next
+          case 3
+          then show ?case by auto
+        next
+          case 4
+          then show ?case using * by auto
+        next
+          case 5
+          then show ?case using in_its_partition[OF assms C2] no_self_neighbor by blast
+        next
+          case 6
+          then show ?case using finite_pi'[OF assms C2] .
+        next
+          case 7
+          then show ?case using finite_neighbors by auto
+        qed
+        then show ?case by auto
+      qed
+      ultimately have "\<forall>k \<in> ?A2_C2. val k (\<pi> k ) \<le> 4/5" by auto
+      moreover have "\<forall>k \<in> ?A2_C2. val k ?A2_C2 = 5/6"
+      proof(standard, goal_cases A2_C2)
+        case (A2_C2 k)
+        hence "?A2_C2 \<inter> neighbors k = ?A2_C2 - {k}"
+        proof(standard,goal_cases A2 C2)
+          case A2
+          then show ?case unfolding neighbors_correct_set[OF A2] by auto
+        next
+          case C2
+          then show ?case unfolding neighbors_correct_set[OF C2] by auto
+        qed
+        moreover have "card(...) = 5" using A2_C2 by auto
+        moreover have "card ?A2_C2 = 6" by auto
+        ultimately show ?case using val_graph_correct[symmetric] finite_clusterNodes unfolding val_graph_def by auto
+      qed
+      ultimately have "\<forall>k \<in> ?A2_C2. strict_pref_rel ?A2_C2 k (\<pi> k)"
+        unfolding strict_pref_rel_def by auto
+      hence "blocking_coalition \<pi> ?A2_C2 " unfolding blocking_coalition_def
+        apply (auto simp del:clusterNodes.simps)
+        apply auto
+        done
+      then show ?case using assms unfolding core_def in_core_def by auto
+    next
+      case 3
+      show ?case
+      proof (standard, goal_cases left right)
+        case left
+        then show ?case using pi_clusterNodes_j5
+           not_A1_j5 3(1)  unfolding neighbors_correct_set[OF j_def(2)] 
+          by (auto simp del:clusterNodes.simps)
+      next
+        case right
+        then show ?case using 3(2) B5_pi by auto
+      qed
+    next
+      case 4
+      have pi_j:"\<pi> j5 = clusterNodes (Cluster B (pred l))"
+        proof (standard, goal_cases left right)
+          case left
+          then show ?case using pi_clusterNodes_j5
+           not_A1_j5 4(1,2)  unfolding neighbors_correct_set[OF j_def(2)] 
+          by (auto simp del:clusterNodes.simps)
+      next
+        case right
+        then show ?case using  B5_pi by auto
+      qed
+      moreover have "card (\<pi> j5 \<inter> neighbors j5) \<ge> 4"
+        using j_def(4) card_val_lower_bound[OF finite_pi'[OF assms j_def(2)] _ in_its_partition[OF assms j_def(2)]]
+        unfolding f'_def by auto
+      hence "card (\<pi> j5) \<ge> 4" using card_mono[OF finite_pi'[OF assms j_def(2)]] 
+        by (meson inf_le1 le_trans)
+      then show ?case using pi_j by auto 
+    qed
+    let ?A2_C2= "clusterNodes (Cluster A (Suc l)) \<union> clusterNodes (Cluster C (Suc l))"
+    have "\<forall>j\<in>?A2_C2. val j (\<pi> j) \<le> 4/5"
+    proof (standard, goal_cases asm)
+      case (asm j)
+      then show ?case
+      proof(standard, goal_cases A2 C2)
+        case A2
+        hence "j \<notin> \<pi> j1" "j \<notin> \<pi> j5" using pi_j1 pi_j5 by auto
+        hence "\<pi> j \<inter> \<pi> j1 = {}" "\<pi> j \<inter> \<pi> j5 = {}" using partition_relation[OF assms A2 j_def(1)]
+              partition_relation[OF assms A2 j_def(2)] by auto
+        hence * :"\<pi> j \<inter> clusterNodes(Cluster B l) = {}" "\<pi> j \<inter> clusterNodes (Cluster C (Suc l)) = {}"
+          using pi_j1 pi_j5 by auto
+        have "val j (\<pi> j) \<le> real 4/ (real 4 + real 1)"
+        proof (rule card_val_upper_bound''[of "neighbors j - (clusterNodes(Cluster B l) \<union> clusterNodes (Cluster C (Suc l)) ) " _ "{j}"], goal_cases)
+          case 1
+          have "card (clusterNodes(Cluster B l) \<union> clusterNodes (Cluster C (Suc l)) ) = 5 " by auto
+          moreover have "card (neighbors j) = 9" using card_neighbors_A'[OF A2] .
+          moreover have " clusterNodes(Cluster B l) \<union> clusterNodes (Cluster C (Suc l)) \<subseteq> neighbors j"
+            unfolding neighbors_correct_set[OF A2] using A2 by auto
+          ultimately show ?case 
+            by simp 
+        next
+          case 2
+          then show ?case by auto
+        next
+          case 3
+          then show ?case by auto
+        next
+          case 4
+          then show ?case using * by auto
+        next
+          case 5
+          then show ?case using in_its_partition[OF assms A2] no_self_neighbor by blast
+        next
+          case 6
+          then show ?case using finite_pi'[OF assms A2] .
+        next
+          case 7
+          then show ?case using finite_neighbors by auto
+        qed
+        then show ?case by auto
+      next
+        case C2
+        have "j \<in> \<pi> j5" using pi_j5 C2 by auto
+        hence "\<pi> j = \<pi> j5" using partition_relation[OF assms C2 j_def(2)] by auto
+        moreover have "\<pi> j5 \<inter> neighbors j = \<pi> j5 - {j}" unfolding neighbors_correct_set[OF C2] 
+        pi_j5 by auto
+        moreover have "card (\<pi> j5) = 5" "card (\<pi> j5 - {j})  = 4" unfolding pi_j5 using C2 by auto
+        ultimately show ?case unfolding val_graph_correct[OF finite_pi'[OF assms C2], symmetric]
+            val_graph_def by auto
+      qed
+    qed
+    moreover have "\<forall>j\<in>?A2_C2. val j ?A2_C2 = 5/6"
+    proof (standard, goal_cases A2_C2)
+      case (A2_C2 j)
+      hence "?A2_C2 \<inter> neighbors j= ?A2_C2 - {j}"
+      proof(standard, goal_cases A2 C2)
+        case A2
+        then show ?case using neighbors_correct_set[OF A2] A2 by auto
+      next
+        case C2
+        then show ?case using neighbors_correct_set[OF C2] C2 by auto
+      qed
+      hence "card (?A2_C2 \<inter> neighbors j) = 5" using A2_C2 by auto
+      moreover have "card ?A2_C2 = 6" by auto
+      ultimately show ?case using val_graph_correct[OF finite_clusterNodes'[of "{Cluster A (Suc l), Cluster C (Suc l)}"], symmetric]
+        unfolding val_graph_def using A2_C2  by auto
+    qed
+    ultimately have "\<forall>j \<in> ?A2_C2. strict_pref_rel ?A2_C2 j (\<pi> j)"
+      unfolding strict_pref_rel_def by auto
+    moreover have "?A2_C2 \<noteq> {}" by auto
+    ultimately  have "blocking_coalition \<pi> ?A2_C2"
+      unfolding blocking_coalition_def by blast
+    thus False using assms unfolding core_def in_core_def by auto
   next
     case False
     let ?A1_C1= "clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l)"
@@ -4259,7 +4619,7 @@ next
       by (metis (no_types, lifting) neighbors_correct_set[OF i_def(1)] example_2.clusterEdge.simps(2) i_def(1) neighbor_check pred2_diff suc_pred)
     ultimately show ?case by auto
   qed
-  have * : "\<forall>l. \<pi> (j l) = clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l) \<or> \<pi> (j l) = clusterNodes (Cluster C l) \<union> clusterNodes (Cluster B (pred (pred l)))"
+  have C_pattern : "\<forall>l. \<pi> (j l) = clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l) \<or> \<pi> (j l) = clusterNodes (Cluster C l) \<union> clusterNodes (Cluster B (pred (pred l)))"
   proof (rule ccontr, goal_cases asm)
     case asm
     then obtain l where not_pi_def: "\<pi> (j l) \<noteq> clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l)"
@@ -4297,12 +4657,15 @@ next
       then show ?case using not_pi_def(2) by simp  
     qed
   qed
-  have "\<forall>l i. i \<in> clusterNodes (Cluster A l) \<longrightarrow> \<pi> i = clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l)
-        \<or> \<pi> i \<subseteq> clusterNodes (Cluster A l) \<union> clusterNodes (Cluster B l)  \<union> clusterNodes (Cluster B (pred l))"
+  have A_pattern:"\<forall>l i. i \<in> clusterNodes (Cluster A l) \<longrightarrow> \<pi> i = clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l)
+        \<or>(\<exists>Z.  \<pi> i =  clusterNodes (Cluster A l) \<union> Z 
+            \<and> card Z \<ge>3 
+            \<and> Z \<subseteq> clusterNodes (Cluster B l) \<union> clusterNodes (Cluster B (pred l)))
+            \<and> ( clusterNodes (Cluster B l) \<subseteq> \<pi> i \<or> clusterNodes (Cluster B (pred l)) \<subseteq> \<pi> i)  "
   proof(standard, standard, standard, goal_cases A_l )
     case (A_l l i)
     have  *** :"j l \<in> clusterNodes (Cluster C l)" using j_def by auto
-    from * 
+    from C_pattern
     have "\<pi> (j l) = clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l) \<or> \<pi> (j l) = clusterNodes (Cluster C l) \<union> clusterNodes (Cluster B (pred (pred l)))"
       by simp
     then show ?case
@@ -4319,13 +4682,140 @@ next
       moreover have "\<pi> i \<subseteq> neighbors i \<union> {i}"
         using A_l False by auto
       hence "\<pi> i \<subseteq> \<Union> (clusterNodes ` neighboring_clusters (Cluster A l))"
-            unfolding neighbors_correct_set[OF A_l] using A_l by (auto simp del:clusterNodes.simps)
+        unfolding neighbors_correct_set[OF A_l] using A_l by (auto simp del:clusterNodes.simps)
+      ultimately have "\<pi> i \<subseteq>  clusterNodes (Cluster A l) \<union> clusterNodes (Cluster B l) \<union> clusterNodes (Cluster B (pred l))"
+        by (auto simp del:clusterNodes.simps)
+      moreover then have "clusterNodes (Cluster A l) \<subseteq> \<pi> i" using A_superplayer'[OF assms A_l] 
+          in_its_partition[OF assms A_l] A_l by blast
+      moreover obtain Z where Z_def: "Z = \<pi> i - clusterNodes (Cluster A l) "  by blast
+      ultimately have pi_def:"\<pi> i = clusterNodes (Cluster A l) \<union> Z"
+       "Z \<subseteq> clusterNodes (Cluster B l) \<union>
+           clusterNodes (Cluster B (pred l))"
+        by blast+
+      moreover have Z3:"card Z \<ge> 3"
+      proof(rule ccontr, goal_cases justTwo)
+        case justTwo
+        let ?A1_C1= "clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l)"
+      have "\<forall>j \<in> clusterNodes (Cluster A l). val j (\<pi> j) < 5/6"
+      proof(standard, goal_cases A1)
+        case (A1 j)
+        hence  pi_eq:"j \<in> \<pi> i" 
+            "\<pi> j = \<pi> i" using partition_relation[OF assms A1 A_l] pi_def(1)
+          by (auto split:if_splits)
+        moreover have "val j (\<pi> i) \<le> (real 4) / (real 4 + real 1)"
+        proof (rule card_val_upper_bound_ineq[of "\<pi> i - {j}" _ "{j}"], goal_cases)
+          case 1
+          have "clusterNodes (Cluster A l) \<inter> Z = {}" using pi_def(2) clusterNodes_inter_empty by auto
+          hence "card (\<pi> i) \<le> 5" using pi_def(1) justTwo 
+            by (metis Suc_nat_number_of_add Suc_numeral card_Un_disjoint clusterCard_correct example_2.clusterCard.simps(1) finite_UnI finite_clusterNodes finite_subset nat_add_left_cancel_le not_less_eq_eq numeral_Bit0 numeral_eq_Suc pi_def(2) pred_numeral_simps(3))  
+          then show ?case using pi_eq by auto
+        next
+          case 2
+          then show ?case by auto
+        next
+          case 3
+          then show ?case by auto
+        next
+          case 4
+          then show ?case using no_self_neighbor by auto
+        next
+          case 5
+          then show ?case using pi_eq(1) no_self_neighbor by auto
+        next
+          case 6
+          then show ?case using finite_pi'[OF assms A_l] .
+        next
+          case 7
+          then show ?case using finite_pi'[OF assms A_l] by auto
+        qed
+        ultimately show ?case by auto
+      qed
+      moreover have "\<forall>j\<in>clusterNodes (Cluster C l). val j (\<pi> j) < 5 / 6"
+      proof(standard, goal_cases C1)
+        case (C1 j)
+        have "j \<notin> \<pi> i " using C1 pi_def clusterNodes_inter_empty by auto
+        hence "\<pi> i \<inter> \<pi> j = {}" using partition_relation[OF assms C1 A_l] by auto
+        hence  * :"\<pi> j \<inter> clusterNodes (Cluster A l) = {}" using pi_def(1) by auto
+        have "val j (\<pi> j) \<le> (real 4)/ (real 4 + real 1)"
+        proof(rule card_val_upper_bound''[of "neighbors j - clusterNodes (Cluster A l) " _ "{j}"], goal_cases )
+          case 1
+          then show ?case unfolding neighbors_correct_set[OF C1]using C1 by auto
+        next
+          case 2
+          then show ?case by auto
+        next
+          case 3
+          then show ?case by auto
+        next
+          case 4
+          then show ?case using * by auto
+        next
+          case 5
+          then show ?case using in_its_partition[OF assms C1] no_self_neighbor by blast
+        next
+          case 6
+          then show ?case using finite_pi'[OF assms C1] .
+        next
+          case 7
+          then show ?case using finite_neighbors by auto
+        qed
+        then show ?case by auto
+      qed
+      ultimately have "\<forall>j\<in> ?A1_C1. val j (\<pi> j) < 5 / 6" by auto
+      moreover have "\<forall>j\<in> ?A1_C1. val j ?A1_C1 = 5/6"
+      proof(standard, goal_cases A1_C1)
+        case (A1_C1 j)
+        hence "?A1_C1 \<inter> neighbors j = ?A1_C1 - {j}"
+        proof(standard,goal_cases A1 C1)
+          case A1
+          then show ?case unfolding neighbors_correct_set[OF A1] by auto
+        next
+          case C1
+          then show ?case unfolding neighbors_correct_set[OF C1] by auto
+        qed
+        hence "card (?A1_C1 \<inter> neighbors j) = 5" 
+          using A1_C1 by auto
+        moreover have "card ?A1_C1 = 6" by auto
+        ultimately show "val j ?A1_C1 = 5/6" using val_graph_correct[of ?A1_C1] finite_clusterNodes
+          unfolding val_graph_def 
+          by (metis (no_types, lifting) card.infinite of_nat_numeral zero_neq_numeral)
+      qed
+      ultimately have "\<forall>j \<in> ?A1_C1. strict_pref_rel ?A1_C1 j (\<pi> j)"
+        unfolding strict_pref_rel_def  by auto
+      hence "blocking_coalition \<pi> ?A1_C1" unfolding blocking_coalition_def
+        using clusterNodes_not_empty by blast
+        then show ?case using assms unfolding core_def in_core_def by blast
+      qed
+      moreover have "\<exists>c. ( c = clusterNodes (Cluster B l) \<or>
+             c = clusterNodes (Cluster B (pred l))) \<and> c \<subseteq> \<pi> i"
+      proof(rule ccontr, goal_cases asm)
+        case asm
+        hence "\<not> clusterNodes (Cluster B l) \<subseteq> \<pi> i" "\<not> clusterNodes (Cluster B (pred l)) \<subseteq> \<pi> i"
+          by auto
+        then obtain b1 b5 where b_def: "b1 \<in> clusterNodes (Cluster B l) " "b1 \<notin> \<pi> i"
+            "b5 \<in> clusterNodes (Cluster B (pred l)) " "b5 \<notin> \<pi> i" 
+          by blast
+        hence Z_inc:"Z \<subseteq> clusterNodes (Cluster B (pred l)) \<union> clusterNodes (Cluster B l) - {b1,b5} "
+          using Z_def pi_def(2) by blast
+        have "b1 \<noteq> b5" using not_in_many_clusters' b_def(1,3)
+          by (meson example_2.Cluster.inject pred_diff)
+        moreover have "card (clusterNodes (Cluster B (pred l)) \<union> clusterNodes (Cluster B l)) = 4"
+          using pred_diff[of l] 
+          by (metis card_Un_disjoint clusterCard_correct clusterNodes_inter_empty example_2.Cluster.inject example_2.clusterCard.simps(2) finite_clusterNodes numeral_Bit0)
+        ultimately have "card( (clusterNodes (Cluster B (pred l)) \<union> clusterNodes (Cluster B l)) - {b1,b5}) = 2" 
+          using b_def(1,3) pred_diff
+          by (smt (verit, best) One_nat_def UnI1 UnI2 card_Diff_insert card_Diff_singleton insert_absorb nat_numeral nat_numeral_diff_1 numeral_3_eq_3 numeral_code(2) of_nat_1 of_nat_add of_nat_numeral one_add_one plus_1_eq_Suc singleton_insert_inj_eq')  
+        then show ?case using Z_inc Z3 
+          by (metis One_nat_def card_mono finite_Diff finite_UnI finite_clusterNodes nat_1_add_1 not_less_eq_eq numeral_3_eq_3 plus_1_eq_Suc)
+      qed
       ultimately show ?thesis by (auto simp del:clusterNodes.simps)
     qed
   qed
   then consider (1) "\<forall>l i. i \<in> clusterNodes (Cluster A l) \<longrightarrow> \<pi> i = clusterNodes (Cluster A l) \<union> clusterNodes (Cluster C l)"
-              | (2) "\<exists>l i. i \<in> clusterNodes (Cluster A l) \<and> \<pi> i \<subseteq> clusterNodes (Cluster A l) \<union> clusterNodes (Cluster B l)  \<union> clusterNodes (Cluster B (pred l)) "
-    by blast
+    | (2) "\<exists>l i Z. i \<in> clusterNodes (Cluster A l) \<and> \<pi> i = clusterNodes (Cluster A l) \<union> Z
+          \<and> card Z \<ge> 3 \<and> Z \<subseteq> clusterNodes (Cluster B l) \<union> clusterNodes (Cluster B (pred l)) \<and>
+           (clusterNodes (Cluster B l) \<subseteq> \<pi> i \<or> clusterNodes (Cluster B (pred l)) \<subseteq> \<pi> i)  "
+    by metis
   then show False
   proof(cases)
     case 1
@@ -4416,17 +4906,238 @@ next
       unfolding blocking_coalition_def by blast
     then show ?thesis using assms unfolding core_def in_core_def by blast
   next
-    case 2
-    then show ?thesis sorry
-  qed
+    case 2    
+    then obtain l i Z l' where i_def:"i \<in> clusterNodes (Cluster A l)" "\<pi> i = clusterNodes (Cluster A l) \<union> Z"
+       "Z \<subseteq> clusterNodes (Cluster B l) \<union>
+           clusterNodes (Cluster B (pred l))"
+      "card Z \<ge> 3" "l' = l \<or> l' = pred l" "clusterNodes (Cluster B l') \<subseteq> \<pi> i"
+      by blast
+      from j_def have j__: "j l \<in> clusterNodes (Cluster C l)" by blast
+      hence "j l \<notin> \<pi> i" using i_def(2,3) by auto
+      hence "\<pi> (j l) \<inter> \<pi> i = {}" using partition_relation[OF assms j__ i_def(1)] by auto
+      hence "\<pi> (j l) \<inter> clusterNodes (Cluster A l) = {}" using i_def(2) by auto
+      hence pi_j: "\<pi> (j l) =  clusterNodes (Cluster C l) \<union> clusterNodes (Cluster B (pred (pred l)))" 
+        using C_pattern 
+        by (metis Un_Int_eq(1) clusterNodes_not_empty)
+      obtain i' where i'__:"i'\<in> clusterNodes (Cluster A (pred l))" by auto
+      have pi5: "\<pi> i' = clusterNodes (Cluster A (pred l)) \<union> clusterNodes (Cluster C (pred l))"
+      proof(rule ccontr,goal_cases asm)
+        case asm
+        then obtain Z' where Z_def: "\<pi> i' = clusterNodes (Cluster A (pred l)) \<union> Z'"
+       "Z' \<subseteq> clusterNodes (Cluster B (pred l)) \<union> clusterNodes (Cluster B (pred (pred l))) "
+       "clusterNodes (Cluster B (pred (pred l))) \<subseteq> \<pi> i' \<or> clusterNodes (Cluster B (pred l)) \<subseteq> \<pi> i' "
+          using A_pattern i'__ by metis 
+        from Z_def(3) show False
+        proof(standard,goal_cases B4 B5)
+          case B4
+          have "i' \<notin> \<pi> (j l)" using pi_j i'__ by auto
+          hence "\<pi> i' \<inter> \<pi> (j l) = {}" using partition_relation[OF assms i'__ j__] by auto
+          hence "\<pi> i' \<inter> clusterNodes (Cluster B (pred (pred l))) = {}" using pi_j by auto
+          then show ?case using B4 by auto
+        next
+          case B5
+          have "Z \<inter> clusterNodes (Cluster B (pred l)) \<noteq> {}"
+          proof(rule ccontr, goal_cases asm)
+            case asm
+            hence "Z \<subseteq> clusterNodes (Cluster B l)" using i_def(3) by auto
+            from card_mono[OF finite_clusterNodes this] have "card Z \<le> 2" by auto
+            then show ?case using i_def(4) by auto
+          qed
+          then obtain b where "b \<in>  clusterNodes (Cluster B (pred l))" "b \<in> Z" by blast
+          hence "b \<in> \<pi> i'" "b \<in> \<pi> i" using B5 i_def(2) by auto
+          hence "\<pi> i = \<pi> i'" 
+            by (meson assms disjoint_iff equal_or_disjoint i'__ i_def(1))
+          hence "i \<in> \<pi> i'" using in_its_partition[OF assms i_def(1)] by auto
+          moreover have "i \<notin> \<pi> i'" using Z_def(1,2) i_def(1) 
+            by (metis Un_iff example_2.Cluster.inject not_in_many_clusters' pred2_diff subsetD)
+          ultimately show ?case by simp 
+        qed
+      qed
+      obtain i'' where i''__:"i''\<in> clusterNodes (Cluster A (pred (pred l)))" by auto
+      have pi4: "\<pi> i'' = clusterNodes (Cluster A (pred (pred l))) \<union> clusterNodes (Cluster C (pred (pred l)))"
+      proof(rule ccontr,goal_cases asm)
+        case asm
+        then obtain Z'' where Z_def: "\<pi> i'' = clusterNodes (Cluster A (pred (pred l))) \<union> Z''"
+       "Z'' \<subseteq> clusterNodes (Cluster B (pred (pred l))) \<union> clusterNodes (Cluster B (Suc ( Suc l))) "
+       "clusterNodes (Cluster B (pred (pred l))) \<subseteq> \<pi> i'' \<or> clusterNodes (Cluster B (Suc (Suc  l))) \<subseteq> \<pi> i'' "
+          "card Z''\<ge> 3"
+          unfolding pred_3_suc2[symmetric] using A_pattern i''__ by metis
+        from Z_def(3) show False
+        proof(standard,goal_cases B4 B3)
+          case B4
+          have "i'' \<notin> \<pi> (j l)" using pi_j i''__ by auto
+          hence "\<pi> i'' \<inter> \<pi> (j l) = {}" using partition_relation[OF assms i''__ j__] by auto
+          hence "\<pi> i'' \<inter> clusterNodes (Cluster B (pred (pred l))) = {}" using pi_j by auto
+          then show ?case using B4 by auto
+        next
+          case B3
+          have "Z'' \<inter> clusterNodes (Cluster B (pred( pred  l))) \<noteq> {}"
+          proof(rule ccontr, goal_cases asm)
+            case asm
+            hence "Z'' \<subseteq> clusterNodes (Cluster B (Suc (Suc l)))" using Z_def(2) by auto
+            from card_mono[OF finite_clusterNodes this] have "card Z'' \<le> 2" by auto
+            then show ?case using Z_def(4)  by auto
+          qed
+          then obtain b where "b \<in>  clusterNodes (Cluster B (pred  (pred l)))" "b \<in> Z''" by blast
+          hence "b \<in> \<pi> (j l)" "b \<in> \<pi> i''" using Z_def(1)  pi_j by auto
+          hence "\<pi> (j l) = \<pi> i''" 
+            by (meson assms disjoint_iff equal_or_disjoint i''__ j__)
+          hence "i'' \<in> \<pi> (j l)" using in_its_partition[OF assms i''__] by auto  
+          moreover have "i'' \<notin> \<pi> (j l)" using pi_j i''__ by auto 
+          ultimately show ?case by simp
+        qed
+      qed
+      have pi3:"\<pi> (j (Suc (Suc l))) = clusterNodes (Cluster A (Suc (Suc l ))) \<union> clusterNodes (Cluster C (Suc (Suc l ))) "
+      proof (rule ccontr, goal_cases asm)
+        case asm
+        hence pi_j3: "\<pi> (j (Suc (Suc l))) = clusterNodes (Cluster C (Suc (Suc l ))) \<union> clusterNodes (Cluster B l)"
+          using C_pattern pred_suc by (auto simp del:clusterNodes.simps)
+        have "Z \<inter> clusterNodes (Cluster B  l) \<noteq> {}"
+          proof(rule ccontr, goal_cases asm)
+            case asm
+            hence "Z \<subseteq> clusterNodes (Cluster B (pred l))" using i_def(3) by auto
+            from card_mono[OF finite_clusterNodes this] have "card Z \<le> 2" by auto
+            then show ?case using i_def(4) by auto
+          qed
+           then obtain b where "b \<in>  clusterNodes (Cluster B l)" "b \<in> Z" by blast
+           hence "b \<in>  \<pi> (j (Suc (Suc l))) " "b \<in> \<pi> i" using pi_j3 i_def(2) by auto
+           hence "\<pi> (j (Suc (Suc l))) = \<pi> i " 
+             by (meson assms disjoint_iff equal_or_disjoint i_def(1) j_def)
+           hence "i \<in> \<pi> (j (Suc (Suc l)))" using in_its_partition[OF assms i_def(1)] by auto
+           moreover have "i \<notin> \<pi> (j (Suc (Suc l)))" using pi_j3 i_def(1) by auto
+           ultimately show False by auto
+         qed
+      have pi2: "\<pi> (j (Suc l)) = clusterNodes (Cluster A (Suc l )) \<union> clusterNodes (Cluster C (Suc l )) "
+      proof (rule ccontr, goal_cases asm)
+        case asm
+        hence pi_j2: "\<pi> (j(Suc l)) = clusterNodes (Cluster C (Suc l )) \<union> clusterNodes (Cluster B (pred l))"
+          using C_pattern pred_suc by (auto simp del:clusterNodes.simps)
+        have "Z \<inter> clusterNodes (Cluster B (pred l)) \<noteq> {}"
+          proof(rule ccontr, goal_cases asm)
+            case asm
+            hence "Z \<subseteq> clusterNodes (Cluster B  l)" using i_def(3) by auto
+            from card_mono[OF finite_clusterNodes this] have "card Z \<le> 2" by auto
+            then show ?case using i_def(4) by auto
+          qed
+           then obtain b where "b \<in>  clusterNodes (Cluster B (pred l))" "b \<in> Z" by blast
+           hence "b \<in>  \<pi> (j (Suc l)) " "b \<in> \<pi> i" using pi_j2 i_def(2) by auto
+           hence "\<pi> (j (Suc l)) = \<pi> i " 
+             by (meson assms disjoint_iff equal_or_disjoint i_def(1) j_def)
+           hence "i \<in> \<pi> (j (Suc l))" using in_its_partition[OF assms i_def(1)] by auto
+           moreover have "i \<notin> \<pi> (j (Suc l))" using pi_j2 i_def(1) by auto
+           ultimately show False by auto
+         qed
+         let ?co= "clusterNodes (Cluster A (Suc (Suc l))) \<union> clusterNodes (Cluster B (Suc (Suc l)))
+                  \<union> clusterNodes (Cluster B (Suc l))"
+         have "\<forall>k \<in>  clusterNodes (Cluster A (Suc (Suc l))). val k (\<pi> k) = 5/6"
+         proof (standard, goal_cases A3)
+           case (A3 k)
+           hence * :"k \<in> \<pi> (j (Suc (Suc l)))" unfolding pi3 by auto
+           have "j (Suc (Suc l)) \<in> clusterNodes (Cluster C (Suc (Suc l)))" 
+             using j_def by auto
+           from partition_relation[OF assms A3 this]
+           have pi_k_def:"\<pi> k = \<pi> (j (Suc (Suc l))) " using * by auto
+           hence "card (\<pi> k) = 6" unfolding pi3 by auto
+           moreover have "\<pi> k \<inter> neighbors k = \<pi> k - {k}" unfolding pi_k_def pi3
+              neighbors_correct_set[OF A3] using A3 by auto
+           hence "card (\<pi> k \<inter> neighbors k) = 5" unfolding pi_k_def pi3
+              neighbors_correct_set[OF A3] using A3 by auto
+           ultimately show ?case unfolding
+               val_graph_correct[OF finite_pi'[OF assms A3], symmetric]
+               val_graph_def by auto
+         qed
+         moreover have "\<forall>k \<in>  clusterNodes (Cluster A (Suc (Suc l))). val k ?co = 6/7"
+         proof (standard, goal_cases A3)
+           case (A3 k)
+           have *:"?co \<inter> neighbors k = ?co - {k}" unfolding neighbors_correct_set[OF A3] using A3 by auto
+           have "card (?co) = 7" using card_distrib[of "{Cluster A (Suc (Suc l)), Cluster B (Suc (Suc l)),  Cluster B (Suc l)}"]
+             by auto
+           moreover then have "card (?co  \<inter> neighbors k) = 6" unfolding * using A3 by auto
+           ultimately show ?case using
+               val_graph_correct[symmetric] finite_clusterNodes'[of "{Cluster A (Suc (Suc l)), Cluster B (Suc (Suc l)),  Cluster B (Suc l)}"]
+             unfolding val_graph_def by auto
+         qed
+         ultimately have *: "\<forall>k \<in> clusterNodes (Cluster A (Suc (Suc l))). strict_pref_rel ?co k (\<pi> k)"
+           unfolding strict_pref_rel_def by auto
+         have "\<forall>k \<in>  clusterNodes (Cluster B (Suc (Suc l))) \<union>  clusterNodes (Cluster B (Suc l)).
+               val k (\<pi> k) \<le> 1/2 "
+         proof (standard, goal_cases B)
+           case (B k)
+           then obtain l' where k_def: "k \<in> clusterNodes (Cluster B l')" "l' = Suc (Suc l) \<or> l' = Suc l "
+             by blast
+           have "val k (\<pi> k) \<le> real 1 / (real 1 + real 1)"
+           proof (rule card_val_upper_bound''[of "clusterNodes (Cluster B l') - {k}" _ "{k}"], goal_cases)
+             case 1
+             then show ?case using B k_def by auto
+           next
+             case 2
+             then show ?case by auto
+           next
+             case 3
+             then show ?case by auto
+           next
+             case 4
+             have  j__:"j l' \<in> clusterNodes (Cluster C l')" using j_def by blast
+             have "k \<notin> \<pi> (j l')" using k_def pi3 pi2 by auto
+             hence "\<pi> k \<inter> \<pi> (j l') = {}" using partition_relation[OF assms k_def(1) j__] by auto
+             hence "\<pi> k \<inter> clusterNodes (Cluster A l') = {}" using pi2 pi3 k_def by blast
+             moreover have j__:"j (Suc (Suc l)) \<in> clusterNodes (Cluster C (Suc (Suc l)))"
+               using j_def by blast
+             have "k \<notin> \<pi> i''" "k \<notin> \<pi> (j (Suc (Suc l)))" using pi3 pi4 k_def by auto
+             hence "\<pi> k \<inter> \<pi> i'' = {}" "\<pi> k \<inter> \<pi> (j (Suc (Suc l))) = {} "
+               using partition_relation[OF assms k_def(1) j__] partition_relation[OF assms k_def(1) i''__] by auto
+             hence "\<pi> k \<inter> clusterNodes (Cluster A  (Suc l')) = {} " using pi4 pi3  k_def(2) Suc_pred
+               by (metis IntE Un_Int_eq(3) disjoint_iff pred_3_suc2 suc_pred)
+             moreover  have "k \<notin> \<pi> i'" "k \<notin> \<pi> i''" using pi5 pi4 k_def by auto
+             hence "\<pi> k \<inter> \<pi> i'' = {}" "\<pi> k \<inter> \<pi> i' = {} "
+               using partition_relation[OF assms k_def(1) i'__] partition_relation[OF assms k_def(1) i''__] by auto
+             hence "\<pi> k \<inter> clusterNodes (Cluster C  (Suc  (Suc l'))) = {} " using pi4 pi5  k_def(2) suc_pred
+               by (smt (verit) Suc.simps(5) example_2.pred.elims example_2.pred.simps(2) example_2.pred.simps(3) example_2.pred.simps(4) example_2.pred.simps(5) inf_sup_distrib1 sup_bot.eq_neutr_iff)
+             ultimately show ?case unfolding neighbors_correct_set[OF k_def(1)] by (auto simp del:clusterNodes.simps)
+           next
+             case 5
+             then show ?case using in_its_partition[OF assms k_def(1)] no_self_neighbor by blast
+           next
+             case 6
+             then show ?case using finite_pi'[OF assms k_def(1)] .
+           next
+             case 7
+             then show ?case using finite_clusterNodes by blast
+           qed
+           then show ?case by auto
+         qed
+         moreover have "\<forall>k \<in>  clusterNodes (Cluster B (Suc (Suc l))) \<union>  clusterNodes (Cluster B (Suc l)).
+               val k ?co = 4/7"
+          proof (standard, goal_cases B)
+            case (B k)
+           have finite_co:"finite ?co" using finite_clusterNodes' by auto
+           from B obtain l' where k_def: "k \<in> clusterNodes (Cluster B l')" "l' = Suc (Suc l) \<or> l' = Suc l "
+             by blast
+           hence "?co \<inter> neighbors k = clusterNodes (Cluster B l') \<union> clusterNodes (Cluster A ( Suc (Suc l))) - {k}"
+             unfolding neighbors_correct_set[OF k_def(1)] by auto
+           hence "card (?co \<inter> neighbors k) = 4" using k_def(1) by auto
+           moreover have "card (?co) = 7" using card_distrib[of "{Cluster A (Suc (Suc l)), Cluster B (Suc (Suc l)),  Cluster B (Suc l)}"]
+             by auto
+           ultimately show ?case unfolding val_graph_correct[OF finite_co, symmetric] val_graph_def by auto
+         qed
+         ultimately have "\<forall>k \<in>  clusterNodes (Cluster B (Suc (Suc l))) \<union>  clusterNodes (Cluster B (Suc l)).
+             strict_pref_rel ?co k (\<pi> k)"
+           unfolding strict_pref_rel_def by auto
+         hence "\<forall>k \<in> ?co. strict_pref_rel ?co k (\<pi> k)" using * by blast
+         moreover have "?co \<noteq> {}" by auto
+         ultimately have "blocking_coalition \<pi> ?co" unfolding blocking_coalition_def by blast
+         then show ?thesis using assms unfolding core_def in_core_def by auto
+       qed
+     qed
 
-  
-  
-
-  then show ?thesis sorry
-qed
+corollary empty_core':  "core = {}"
+  using empty_core by auto
 
 
 
-end                                            
+
+end
+term "FHG_th.sym_simple_FHG"
+end
+
                                                      
