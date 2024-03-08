@@ -1,0 +1,142 @@
+theory FHG
+  imports Main HOL.Real
+begin
+
+definition pref :: "'a set \<Rightarrow> ('a \<Rightarrow> 'a \<Rightarrow> bool) => bool" where
+"pref S r \<equiv> let r_as_set = {(a,b). r a b \<and> a \<in>S \<and> b\<in>S} in
+ refl_on S r_as_set \<and> total_on S r_as_set \<and> trans r_as_set"
+
+locale Hedonic_game =
+  fixes N :: "'a set"
+  and pref_rel  :: "'a set \<Rightarrow> 'a \<Rightarrow> 'a set \<Rightarrow> bool" ("_ \<succeq>\<^sub>_ _" [60,61,60])
+assumes "finite N"     
+and   "\<forall>i\<in>N. pref {S. S \<subseteq> N \<and> i \<in> S} (\<lambda>x y. pref_rel x i y) "
+begin
+
+definition isPartition :: "('a \<Rightarrow> 'a set) \<Rightarrow> bool" where
+"isPartition \<pi> \<equiv> equiv N {(i,j). i \<in> N \<and> j \<in> \<pi> i}"
+                                        
+definition strict_pref_rel  :: "'a set \<Rightarrow> 'a \<Rightarrow> 'a set \<Rightarrow> bool" ("_ \<succ>\<^sub>_ _" [60,61,60]) where
+"S \<succ>\<^sub>i T \<equiv> S \<succeq>\<^sub>i T \<and> \<not> ( T \<succeq>\<^sub>i S) "
+
+
+definition blocking_coalition :: "('a \<Rightarrow> 'a set) \<Rightarrow> 'a set \<Rightarrow> bool" where
+"blocking_coalition \<pi> S \<equiv> (\<exists>i. i \<in> S) \<and> (\<forall>i \<in> S. S \<succ>\<^sub>i \<pi> i)"
+
+definition weakly_blocking_coalition :: "('a \<Rightarrow> 'a set) \<Rightarrow> 'a set \<Rightarrow> bool" where
+"weakly_blocking_coalition \<pi> S \<equiv> (\<exists>i\<in>S. S \<succ>\<^sub>i \<pi> i) \<and> (\<forall>i\<in>S. S \<succeq>\<^sub>i \<pi> i)"
+                               
+definition core :: "('a \<Rightarrow> 'a set) set" where
+"core \<equiv> {\<pi>. \<not>(\<exists>S. blocking_coalition \<pi> S)}"  
+              
+definition weak_core :: "('a \<Rightarrow> 'a set) set" where
+"weak_core \<equiv> {\<pi>. \<not>(\<exists>S. weakly_blocking_coalition \<pi> S)}"  
+      
+end
+                                  
+locale FHG =                     
+  fixes N :: "'a set"
+    and v:: "'a \<Rightarrow> 'a \<Rightarrow> real"      
+  assumes finite:"finite N"        
+begin                                        
+                                   
+definition val :: "'a \<Rightarrow> 'a set \<Rightarrow> real" ("v\<^sub>_ _" [60, 60]) where
+"val i S \<equiv> sum (v i) S / card S "
+                                
+sublocale Hedonic_game N "(\<lambda>x i y. val i x \<ge> val i y)" 
+  using finite by  unfold_locales     
+    (auto simp add: pref_def refl_on_def total_on_def trans_def)
+end           
+
+locale simple_FHG =
+  fixes N :: "'a set"
+    and v:: "'a \<Rightarrow> 'a \<Rightarrow> bool"
+  assumes finite:"finite N" 
+begin
+sublocale  FHG N "(\<lambda>x y. if v x y then 1 else 0 )"
+  using finite by unfold_locales
+end                                    
+                    
+locale sym_FHG = FHG + assumes sym :"\<forall>x y. v x y = v y x"  
+                   
+locale sym_simple_FHG = simple_FHG + assumes sym :"\<forall>x y. v x y = v y x"  
+
+locale graph_FHG =
+  fixes N :: "'a set"
+  and v:: "('a * 'a) set" 
+assumes finite: "finite N"
+and sym: "sym v"
+begin                  
+sublocale sym_simple_FHG N "\<lambda>x y. (x,y) \<in> v"
+proof unfold_locales
+  show "finite N" using finite .
+  show "\<forall>x y. ((x, y) \<in> v) = ((y, x) \<in> v)"
+    by (meson local.sym symE)
+qed
+end
+            
+subsection "Example"
+
+definition N\<^sub>0_list where 
+"N\<^sub>0_list \<equiv> [1,2,3,4,5,6]"
+       
+definition E\<^sub>0_list where "E\<^sub>0_list \<equiv> [(1,2),(1,3),(1,4),(2,1),(2,3),(2,5),(3,1),(3,2),(3,6),(4,5)
+,(4,6),(4,1),(5,4),(5,6),(5,2),(6,4),(6,5),(6,3) 
+]"
+
+fun elem :: " 'a \<Rightarrow> 'a list \<Rightarrow> bool" where
+"elem x [] = False"|                
+"elem x (y#ys) = (x=y \<or> elem x ys)"    
+
+fun rem :: "'a \<Rightarrow> 'a list \<Rightarrow> 'a list" where
+"rem x [] = []"|
+"rem x (y#ys) = (if x =y then rem x ys else y# rem x ys)" 
+
+lemma len_rem_decreasing:"length (rem (b, a) xs) \<le> (length xs)"
+  by (induction xs) auto
+
+function isSym :: "('a * 'a) list \<Rightarrow> bool" where
+"isSym [] = True"|
+"isSym ((a,b)#xs) = (if elem (b,a) xs then  isSym (rem (b,a) xs) else False)"
+by pat_completeness auto
+termination isSym   
+proof (relation "measure length")
+  show "wf (measure length)" by simp 
+  show " \<And>a b xs.
+       elem (b, a) xs \<Longrightarrow>
+       (rem (b, a) xs, (a, b) # xs) \<in> measure length"
+using len_rem_decreasing         
+  by (metis in_measure le_imp_less_Suc length_Cons)
+qed
+                            
+lemma elem_correct:"elem x xs \<Longrightarrow> x \<in> set xs"
+  by (induction xs) auto
+
+lemma rem_correct: "set (rem x xs) = set xs - {x}"
+  by (induction xs) auto         
+
+lemma "isSym xs \<Longrightarrow> sym (set xs)"
+proof (induction "length xs" arbitrary:xs rule:"less_induct" )
+  case less         
+  then show ?case      
+  proof (cases xs)  
+    case Nil                      
+    then show ?thesis by (simp add: sym_def) 
+  next           
+    case (Cons a ys)               
+    then show ?thesis   
+  qed
+qed               
+                                
+interpretation graph_FHG "set N\<^sub>0_list" "set E\<^sub>0_list"
+proof                                 
+  show "finite (set N\<^sub>0_list)" by simp
+  show "sym (set E\<^sub>0_list)"     
+                       
+
+                  
+    
+  
+                        
+ 
+                                        
